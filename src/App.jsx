@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
-import TrainingRow from './components/TrainingRow';
-
+import TrainingForm from './components/TrainingForm';
+import TrainingTable from './components/TrainingTable';
 
 export default function App() {
   const [trainings, setTrainings] = useState([
@@ -12,6 +12,17 @@ export default function App() {
 
   const [form, setForm] = useState({ date: '', distance: '' });
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+  };
+
+  const parseDate = (dateStr) => {
+    const [day, month, year] = dateStr.split('.');
+    return new Date(`${year}-${month}-${day}`);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prevForm => ({ ...prevForm, [name]: value }));
@@ -19,81 +30,45 @@ export default function App() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    const newTraining = {
-      id: Date.now(),
-      date: form.date,
-      distance: parseFloat(form.distance),
-    };
+    const formattedDate = formatDate(form.date);
+    const distanceToAdd = parseFloat(form.distance);
 
     setTrainings(prevTrainings => {
-      return [newTraining, ...prevTrainings].sort((a, b) => {
-        return new Date(b.date.split('.').reverse().join('-')) - new Date(a.date.split('.').reverse().join('-'));
-      });
+      const existingIndex = prevTrainings.findIndex(t => t.date === formattedDate);
+      let updatedTrainings;
+
+      if (existingIndex !== -1) {
+        updatedTrainings = [...prevTrainings];
+        updatedTrainings[existingIndex] = {
+          ...updatedTrainings[existingIndex],
+          distance: updatedTrainings[existingIndex].distance + distanceToAdd
+        };
+      } else {
+        const newTraining = { id: Date.now(), date: formattedDate, distance: distanceToAdd };
+        updatedTrainings = [newTraining, ...prevTrainings];
+      }
+
+      return updatedTrainings.sort((a, b) => parseDate(b.date) - parseDate(a.date));
     });
 
     setForm({ date: '', distance: '' });
   };
 
   const handleDelete = (id) => {
-    setTrainings(prevTrainings => prevTrainings.filter(training => training.id !== id));
+    setTrainings(prevTrainings => prevTrainings.filter(t => t.id !== id));
   };
 
   return (
     <div className="container">
-      <div className="form-container">
-        <form onSubmit={handleSubmit} id="trainingForm">
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="date">Дата (ДД.ММ.ГГ)</label>
-              <input 
-                type="text" 
-                id="date" 
-                name="date" 
-                placeholder="20.07.2019" 
-                required
-                value={form.date}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="distance">Пройдено км</label>
-              <input 
-                type="number" 
-                id="distance" 
-                name="distance" 
-                placeholder="5.7" 
-                step="0.1" 
-                min="0" 
-                required
-                value={form.distance}
-                onChange={handleChange}
-              />
-            </div>
-
-            <button type="submit" className="submit-btn">OK</button>
-          </div>
-        </form>
-      </div>
-
-      <div className="data-table">
-        <div className="table-header">
-          <div className="col-date">Дата (ДД.ММ.ГГ)</div>
-          <div className="col-distance">Пройдено км</div>
-          <div className="col-actions">Действия</div>
-        </div>
-
-        <div className="table-body" id="tableBody">
-          {trainings.length === 0 ? (
-            <div className="empty-state">Нет данных о тренировках</div>
-          ) : (
-            trainings.map(record => (
-              <TrainingRow key={record.id} record={record} onDelete={handleDelete} />
-            ))
-          )}
-        </div>
-      </div>
+      <TrainingForm 
+        form={form} 
+        onChange={handleChange} 
+        onSubmit={handleSubmit} 
+      />
+      <TrainingTable 
+        trainings={trainings} 
+        onDelete={handleDelete} 
+      />
     </div>
   );
 }
